@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/consul/consul"
 	"github.com/hashicorp/consul/consul/structs"
 	"github.com/hashicorp/consul/testutil"
+	"github.com/hashicorp/raft"
 )
 
 const (
@@ -42,6 +43,7 @@ func nextConfig() *Config {
 	conf.Version = "a.b"
 	conf.VersionPrerelease = "c.d"
 	conf.AdvertiseAddr = "127.0.0.1"
+	conf.Performance.RaftMultiplier = 1
 	conf.Bootstrap = true
 	conf.Datacenter = "dc1"
 	conf.NodeName = fmt.Sprintf("Node %d", idx)
@@ -188,6 +190,24 @@ func TestAgent_CheckAdvertiseAddrsSettings(t *testing.T) {
 	}
 	if !reflect.DeepEqual(agent.config.TaggedAddresses, expected) {
 		t.Fatalf("Tagged addresses not set up properly: %v", agent.config.TaggedAddresses)
+	}
+}
+
+func TestAgent_CheckPerformanceSettings(t *testing.T) {
+	c := nextConfig()
+	c.Performance.RaftMultiplier = 99
+	dir, agent := makeAgent(t, c)
+	defer os.RemoveAll(dir)
+	defer agent.Shutdown()
+
+	const raftMult time.Duration = 99
+	r := agent.consulConfig().RaftConfig
+	def := raft.DefaultConfig()
+	if r.HeartbeatTimeout != raftMult*def.HeartbeatTimeout ||
+		r.ElectionTimeout != raftMult*def.ElectionTimeout ||
+		r.CommitTimeout != raftMult*def.CommitTimeout ||
+		r.LeaderLeaseTimeout != raftMult*def.LeaderLeaseTimeout {
+		t.Fatalf("bad: %#v", *r)
 	}
 }
 

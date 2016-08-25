@@ -261,6 +261,15 @@ func (a *Agent) consulConfig() *consul.Config {
 	// Apply dev mode
 	base.DevMode = a.config.DevMode
 
+	// Apply performance factors. The else clause isn't used in practice, but
+	// it's helpful in tests for assuring that we scale properly when we give
+	// an initial configuration without going through a config load.
+	if a.config.Performance.RaftMultiplier > 0 {
+		base.ScaleRaft(a.config.Performance.RaftMultiplier)
+	} else {
+		base.ScaleRaft(consul.DefaultRaftMultiplier)
+	}
+
 	// Override with our config
 	if a.config.Datacenter != "" {
 		base.Datacenter = a.config.Datacenter
